@@ -43,7 +43,8 @@ def analyze_beta_modulation(audio_path):
     window_length = int(window_length_sec * sr)
     hop_length = int(hop_length_sec * sr)
 
-    beta_band = (12, 30)
+    # Focus on narrower beta band around 16 Hz (14-18 Hz) based on research
+    beta_band = (14, 18)
     window_starts = range(0, len(y) - window_length + 1, hop_length)
     envelopes = [get_amplitude_envelope(y[start:start + window_length]) for start in window_starts]
 
@@ -55,7 +56,17 @@ def analyze_beta_modulation(audio_path):
 
     smoothed = uniform_filter1d(beta_energies, size=5)
     window_centers = np.array([(start + window_length // 2) / sr for start in window_starts])
-    return window_centers, smoothed, beta_energies
+    
+    # Calculate percentage of windows above threshold
+    threshold = np.percentile(beta_energies, 60)  # Adaptive threshold
+    windows_above_threshold = np.sum(smoothed > threshold)
+    percentage_above = (windows_above_threshold / len(smoothed)) * 100
+    
+    verdict = "Likely beneficial for ADHD focus" if percentage_above >= 80 else \
+             "Possibly beneficial" if percentage_above >= 50 else \
+             "Unlikely to sustain attention"
+    
+    return window_centers, smoothed, beta_energies, percentage_above, verdict
 
 class PlotViewer:
     def __init__(self, root):
@@ -102,13 +113,15 @@ class PlotViewer:
 
         for filepath in filepaths:
             print(f"Analyzing {filepath}...")
-            times, smoothed_beta, raw_beta = analyze_beta_modulation(filepath)
-            threshold = np.percentile(raw_beta, 75)
+            times, smoothed_beta, raw_beta, percentage, verdict = analyze_beta_modulation(filepath)
+            threshold = np.percentile(raw_beta, 60)
             self.plots_data.append({
                 'filepath': filepath,
                 'times': times,
                 'smoothed_beta': smoothed_beta,
-                'threshold': threshold
+                'threshold': threshold,
+                'percentage': percentage,
+                'verdict': verdict
             })
 
         self.show_plot()
@@ -126,7 +139,14 @@ class PlotViewer:
         ax = self.figure.add_subplot(111)
         ax.plot(data['times'], data['smoothed_beta'], label='Smoothed Beta Power (12–30 Hz)')
         ax.axhline(data['threshold'], color='red', linestyle='--', label='75th Percentile Threshold')
-        ax.set_title(f"Beta Modulation Power Over Time\n{data['filepath']}")
+        # Set background color based on verdict
+        bg_color = '#E8F5E9' if data['verdict'].startswith('Likely') else \
+                  '#FFF3E0' if data['verdict'].startswith('Possibly') else \
+                  '#FFEBEE'
+        
+        ax.set_title(f"Beta (14-18 Hz) Modulation Analysis\n{data['filepath']}\n{data['verdict']} ({data['percentage']:.1f}% above threshold)")
+        ax.set_facecolor(bg_color)
+        self.figure.patch.set_facecolor('white')
         ax.set_xlabel("Time (seconds)")
         ax.set_ylabel("Beta Power (a.u.)")
         ax.legend()
