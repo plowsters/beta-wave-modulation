@@ -44,7 +44,7 @@ def analyze_beta_modulation(audio_path):
     hop_length = int(hop_length_sec * sr)
 
     # Focus on narrower beta band around 16 Hz (14-18 Hz) based on research
-    beta_band = (14, 18)
+    beta_band = (14, 20)
     window_starts = range(0, len(y) - window_length + 1, hop_length)
     envelopes = [get_amplitude_envelope(y[start:start + window_length]) for start in window_starts]
 
@@ -58,7 +58,7 @@ def analyze_beta_modulation(audio_path):
     window_centers = np.array([(start + window_length // 2) / sr for start in window_starts])
     
     # Calculate percentage of windows above threshold
-    threshold = np.percentile(beta_energies, 60)  # Adaptive threshold
+    threshold = np.percentile(beta_energies, 40)  # Adaptive threshold
     windows_above_threshold = np.sum(smoothed > threshold)
     percentage_above = (windows_above_threshold / len(smoothed)) * 100
     
@@ -144,7 +144,7 @@ class PlotViewer:
                   '#FFF3E0' if data['verdict'].startswith('Possibly') else \
                   '#FFEBEE'
         
-        ax.set_title(f"Beta (14-18 Hz) Modulation Analysis\n{data['filepath']}\n{data['verdict']} ({data['percentage']:.1f}% above threshold)")
+        ax.set_title(f"Beta (14-20 Hz) Modulation Analysis\n{data['filepath']}\n{data['verdict']} ({data['percentage']:.1f}% above threshold)")
         ax.set_facecolor(bg_color)
         self.figure.patch.set_facecolor('white')
         ax.set_xlabel("Time (seconds)")
